@@ -169,3 +169,37 @@ struct CSSTests {
         #expect(abs(converted.value - 1.0) < 0.0001)
     }
 }
+
+@Suite("Ordinals are not units")
+struct OrdinalTests {
+
+    @Test("A date is not a weight")
+    func datesDoNotParse() {
+        #expect(Units.parse("21st") == nil)
+        #expect(Units.parse("21st of March") == nil)
+        #expect(Units.parse("1st") == nil)
+        #expect(Units.parse("31st") == nil)
+    }
+
+    @Test("A weight in stone still parses")
+    func stoneStillParses() throws {
+        // The suffix has to be the right one for the number. "5th" is the
+        // ordinal for 5, so "5st" can only be stone.
+        let light = try #require(Units.parse("5st"))
+        #expect(light.unit == UnitMass.stones)
+        #expect(light.value == 5)
+
+        // 11, 12 and 13 all take "th", which is what makes them unambiguous.
+        #expect(Units.parse("11st")?.unit == UnitMass.stones)
+        #expect(Units.parse("14 st")?.unit == UnitMass.stones)
+        #expect(Units.parse("21 stone")?.unit == UnitMass.stones)
+    }
+
+    @Test("Other ordinals were never units, and still aren't")
+    func otherOrdinals() {
+        #expect(Units.parse("2nd") == nil)
+        #expect(Units.parse("3rd") == nil)
+        #expect(Units.parse("4th") == nil)
+        #expect(Units.parse("12th") == nil)
+    }
+}

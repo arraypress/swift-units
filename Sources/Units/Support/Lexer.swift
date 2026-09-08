@@ -50,12 +50,37 @@ enum Lexer {
             let numberText = ns.substring(with: match.range(at: 1)).replacingOccurrences(of: ",", with: ".")
             guard let value = Double(numberText) else { continue }
             let tail = ns.substring(with: match.range(at: 2))
+            guard !isOrdinal(numberText, tail) else { continue }
             
             guard let (entry, matchedSpelling) = resolve(tail) else { continue }
             guard let range = Range(match.range, in: text) else { continue }
             results.append((Match(value: value, unitText: matchedSpelling, range: range), entry))
         }
         return results
+    }
+    
+    /// Whether "21st" is a date rather than 21 stone.
+    ///
+    /// `st` is stone, and an ordinal is written hard against its number, so
+    /// "21st of March" parses as a weight without this. Only the *correct*
+    /// suffix for the number counts, which is what keeps real weights: 1st,
+    /// 21st and 31st are ordinals, while 5st, 11st and 14st are stone — and
+    /// stone is exactly the unit people write attached like that.
+    private static func isOrdinal(_ number: String, _ tail: String) -> Bool {
+        guard let value = Int(number) else { return false }
+
+        let suffix: String
+        switch (abs(value) % 100, abs(value) % 10) {
+        case (11...13, _): suffix = "th"
+        case (_, 1):       suffix = "st"
+        case (_, 2):       suffix = "nd"
+        case (_, 3):       suffix = "rd"
+        default:           suffix = "th"
+        }
+
+        let lowered = tail.lowercased()
+        guard lowered.hasPrefix(suffix) else { return false }
+        return lowered.dropFirst(suffix.count).first?.isLetter != true
     }
     
     /// Find the longest spelling that the tail starts with.
