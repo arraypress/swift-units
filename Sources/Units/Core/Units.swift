@@ -39,8 +39,19 @@ public enum Units {
         var pending: Measurement<Dimension>?
         var pendingEnd: String.Index?
         
-        for (match, entry) in matches {
-            let measurement = Measurement(value: match.value, unit: entry.unit)
+        for (index, (match, entry)) in matches.enumerated() {
+            var measurement = Measurement(value: match.value, unit: entry.unit)
+
+            // "5 ft 11" and "6 foot 2": a bare number after feet is inches,
+            // which is how a height is said aloud and how it is usually typed.
+            // Only a number nothing else claimed — "5 ft 11 in" is already two
+            // matches and sums on its own below.
+            if entry.unit == UnitLength.feet {
+                let nextStart = index + 1 < matches.count ? matches[index + 1].0.range.lowerBound : text.endIndex
+                if let inches = bareInches(in: text[match.range.upperBound..<nextStart]) {
+                    measurement = Measurement(value: match.value * 12 + inches, unit: UnitLength.inches)
+                }
+            }
             
             if let current = pending,
                let end = pendingEnd,
@@ -59,6 +70,18 @@ public enum Units {
         return results
     }
     
+    /// A bare one- or two-digit number under twelve, and nothing that would
+    /// make it something else: not "11.5", not "11am", not "110".
+    private static func bareInches(in slice: Substring) -> Double? {
+        let trimmed = slice.drop(while: \.isWhitespace)
+        let digits = trimmed.prefix(while: \.isNumber)
+        guard !digits.isEmpty, digits.count <= 2, let value = Double(digits), value < 12 else { return nil }
+        if let next = trimmed.dropFirst(digits.count).first, next.isLetter || next.isNumber || ".,:".contains(next) {
+            return nil
+        }
+        return value
+    }
+
     /// Compound quantities are written with nothing but whitespace between the
     /// parts. A comma or a word means they are separate values.
     private static func isAdjacent(_ text: String, from: String.Index, to: String.Index) -> Bool {
@@ -116,7 +139,12 @@ public enum Units {
         
         switch measurement.unit {
         case is UnitLength:
-            let long = measurement.converted(to: UnitLength.meters).value >= 1000
+            // Below a millimetre there is nothing everyday to convert into:
+            // "5 nm" in inches is 0.0000002, which rounds to "0 in" and looks
+            // like a bug rather than an answer.
+            let metres = measurement.converted(to: UnitLength.meters).value
+            guard metres >= 0.001 else { return nil }
+            let long = metres >= 1000
             switch system {
             case .us: return long ? UnitLength.miles : UnitLength.feet
             // Long distances in miles, everything shorter in metres — which is
@@ -125,7 +153,11 @@ public enum Units {
             default: return long ? UnitLength.kilometers : UnitLength.meters
             }
         case is UnitMass:
-            let heavy = measurement.converted(to: UnitMass.grams).value >= 1000
+            // Same for anything under a gram — "500 mg" of a vitamin is not
+            // usefully 0.02 oz.
+            let grams = measurement.converted(to: UnitMass.grams).value
+            guard grams >= 1 else { return nil }
+            let heavy = grams >= 1000
             if system == .us { return heavy ? UnitMass.pounds : UnitMass.ounces }
             return heavy ? UnitMass.kilograms : UnitMass.grams
         case is UnitTemperature:
@@ -134,7 +166,9 @@ public enum Units {
             // Scaled, like length and mass. A flat answer of gallons turns
             // "2 cups" into "0.13 gal", which is nobody's idea of a helpful
             // conversion — small volumes are poured, not filled.
-            let large = measurement.converted(to: UnitVolume.liters).value >= 1
+            let litres = measurement.converted(to: UnitVolume.liters).value
+            guard litres >= 0.001 else { return nil }
+            let large = litres >= 1
             if system == .us {
                 return large ? UnitVolume.gallons : UnitVolume.fluidOunces
             }

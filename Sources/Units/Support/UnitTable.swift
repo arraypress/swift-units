@@ -233,7 +233,10 @@ enum UnitTable {
     
     static let electricCurrent: [Entry] = [
         .init(UnitElectricCurrent.milliamperes, ["ma", "milliamp", "milliamps", "milliampere", "milliamperes"]),
-        .init(UnitElectricCurrent.amperes, ["a", "amp", "amps", "ampere", "amperes"]),
+        // "A" is amperes. "a" is the most common word in English, and matching
+        // it case-insensitively made "10 a day" ten amps.
+        .init(UnitElectricCurrent.amperes, ["A"], caseSensitive: true),
+        .init(UnitElectricCurrent.amperes, ["amp", "amps", "ampere", "amperes"]),
     ]
     
     static let fuelEfficiency: [Entry] = [

@@ -332,3 +332,85 @@ struct CaseTests {
         #expect(Units.parse("250 k") == nil)
     }
 }
+
+@Suite("Prose is not measurement")
+struct ProseTests {
+
+    @Test("The preposition is not the inch")
+    func inches() {
+        #expect(Units.parse("see you at 5 in the morning") == nil)
+        #expect(Units.parse("the 3 in question") == nil)
+        #expect(Units.parse("back in 5 in a bit") == nil)
+        // But say what it is wide or long, or stop, and it is inches again.
+        #expect(Units.parse("12 in wide")?.unit == UnitLength.inches)
+        #expect(Units.parse("12 in x 8 in")?.unit == UnitLength.inches)
+        #expect(Units.parse("12 in")?.unit == UnitLength.inches)
+        #expect(Units.parse("12 in.")?.unit == UnitLength.inches)
+    }
+
+    @Test("Units that are also nouns stop being units when a word follows")
+    func nouns() {
+        #expect(Units.parse("3 cup finals") == nil)
+        #expect(Units.parse("2 ton truck") == nil)
+        #expect(Units.parse("10 pt font") == nil)
+        #expect(Units.parse("12 kt gold") == nil)
+        #expect(Units.parse("3 t shirts") == nil)
+        #expect(Units.parse("5 t-shirts") == nil)
+        #expect(Units.parse("3 bars of chocolate") == nil)
+        #expect(Units.parse("10 yard line") == nil)
+        // Alone, they are what they say.
+        #expect(Units.parse("2 cups")?.unit == UnitVolume.cups)
+        #expect(Units.parse("weighs 2 ton")?.unit == UnitMass.shortTons)
+        #expect(Units.parse("2 pt")?.unit == UnitVolume.pints)
+        #expect(Units.parse("3 t")?.unit == UnitMass.metricTons)
+        // And plurals followed by a word are usually real: "100 yards away".
+        #expect(Units.parse("100 yards away")?.unit == UnitLength.yards)
+    }
+
+    @Test("A floating lowercase letter is not a temperature")
+    func temperatureLetters() {
+        #expect(Units.parse("pack of 6 c batteries") == nil)
+        #expect(Units.parse("grade 3 c average") == nil)
+        #expect(Units.parse("180c")?.unit == UnitTemperature.celsius)
+        #expect(Units.parse("350F")?.unit == UnitTemperature.fahrenheit)
+        #expect(Units.parse("180 C")?.unit == UnitTemperature.celsius)
+        #expect(Units.parse("100 f")?.unit == UnitTemperature.fahrenheit)
+    }
+
+    @Test("A is amperes; a is a word")
+    func amps() {
+        #expect(Units.parse("10 a day") == nil)
+        #expect(Units.parse("the 5 a side") == nil)
+        #expect(Units.parse("10 A")?.unit == UnitElectricCurrent.amperes)
+        #expect(Units.parse("10 amps")?.unit == UnitElectricCurrent.amperes)
+    }
+
+    @Test("Nothing everyday to convert the very small into")
+    func tinyQuantities() {
+        let us = Locale(identifier: "en_US")
+        // "5 nm" in inches is 0.0000002, which prints as "0 in" and reads as a bug.
+        #expect(Units.localised("5 nm", locale: us) == nil)
+        #expect(Units.localised("500 mg", locale: us) == nil)
+        #expect(Units.localised("2 ml", locale: us)?.converted.unit == UnitVolume.fluidOunces)
+        #expect(Units.localised("5 mm", locale: us)?.converted.unit == UnitLength.feet)
+    }
+}
+
+@Suite("Heights as people say them")
+struct HeightTests {
+    @Test("A bare number after feet is inches")
+    func feetThenInches() throws {
+        #expect(Units.parse("5 ft 11")?.converted(to: UnitLength.inches).value == 71)
+        #expect(Units.parse("6 foot 2")?.converted(to: UnitLength.inches).value == 74)
+        #expect(Units.parse("5 ft 11 tall")?.converted(to: UnitLength.inches).value == 71)
+        // Still two matches that sum, exactly as before.
+        #expect(Units.parse("5 ft 11 in")?.converted(to: UnitLength.inches).value == 71)
+    }
+    @Test("But not a number that is something else")
+    func notInches() {
+        #expect(Units.parse("5 ft 11am")?.unit == UnitLength.feet)
+        #expect(Units.parse("5 ft 110")?.unit == UnitLength.feet)
+        #expect(Units.parse("5 ft 11.5")?.unit == UnitLength.feet)
+        #expect(Units.parse("500 ft 12")?.unit == UnitLength.feet)
+    }
+}

@@ -64,8 +64,12 @@ enum Lexer {
             guard let value = Double(numberText) else { continue }
             let tail = ns.substring(with: match.range(at: 2))
             guard !isOrdinal(numberText, tail) else { continue }
+
+            // Whether the unit sits hard against its number, as in "180c".
+            let numberRange = match.range(at: 1)
+            let attached = numberRange.location + numberRange.length == match.range(at: 2).location
             
-            guard let (entry, matchedSpelling) = resolve(tail) else { continue }
+            guard let (entry, matchedSpelling) = resolve(tail, attached: attached) else { continue }
             guard let range = Range(match.range, in: text) else { continue }
             results.append((Match(value: value, unitText: matchedSpelling, range: range), entry))
         }
@@ -100,21 +104,62 @@ enum Lexer {
     ///
     /// Prefix rather than equality so "12kg." and "5 miles away" both resolve —
     /// people rarely select exactly the quantity and nothing else.
-    private static func resolve(_ tail: String) -> (UnitTable.Entry, String)? {
+    private static func resolve(_ tail: String, attached: Bool) -> (UnitTable.Entry, String)? {
         let lowered = tail.lowercased()
         for (spelling, entry) in sortedSpellings {
             let haystack = entry.caseSensitive ? tail : lowered
             let needle = entry.caseSensitive ? spelling : spelling.lowercased()
-            if haystack == needle || haystack.hasPrefix(needle) {
-                // A longer word that merely starts with a unit is not that unit:
-                // "miles" is, "mileage" is not. A trailing "/" means a rate —
-                // "l/100km" is fuel consumption, and answering 35 litres for
-                // it would be confidently wrong, so nothing is answered.
-                let remainder = haystack.dropFirst(needle.count)
-                if let next = remainder.first, next.isLetter || next == "/" { continue }
-                return (entry, spelling)
+            guard haystack == needle || haystack.hasPrefix(needle) else { continue }
+
+            // A longer word that merely starts with a unit is not that unit:
+            // "miles" is, "mileage" is not. A trailing "/" means a rate —
+            // "l/100km" is fuel consumption, and answering 35 litres for it
+            // would be confidently wrong — and a "-" means a compound: the
+            // "t" in "5 t-shirts" is not five tonnes.
+            let remainder = haystack.dropFirst(needle.count)
+            if let next = remainder.first, next.isLetter || next == "/" || next == "-" { continue }
+
+            // The word after the unit, when there is one.
+            let following = remainder.first?.isWhitespace == true
+                ? String(remainder.drop(while: \.isWhitespace).prefix(while: \.isLetter))
+                : ""
+
+            if !following.isEmpty {
+                if wordsWhenFollowed.contains(needle) { continue }
+                if needle == "in", !inchFollowers.contains(following) { continue }
             }
+
+            // A bare "c" or "f" is a temperature when it is written like one —
+            // "180c", "350F", "100 f" and nothing after — and a stray letter
+            // when a lowercase one floats between the number and another
+            // word: "pack of 6 c batteries", "grade 3 c average".
+            if bareTemperatureLetters.contains(needle), !attached, !following.isEmpty,
+               tail.first?.isUppercase != true { continue }
+
+            return (entry, spelling)
         }
         return nil
     }
+
+    /// Spellings that are ordinary English words, and mean the word rather
+    /// than the unit whenever another word follows: "3 cup finals", "2 ton
+    /// truck", "10 pt font", "12 kt gold", "3 t shirts", "5 ha ha", "3 bars
+    /// of chocolate". Alone at the end — "weighs 2 ton", "2 pt" — they are
+    /// still units.
+    private static let wordsWhenFollowed: Set<String> = [
+        "cup", "ton", "tons", "pt", "kt", "kts", "t", "ha", "bar", "bars", "yard",
+    ]
+
+    /// The one spelling ambiguous enough to need the opposite rule.
+    ///
+    /// "in" is the commonest preposition in the language — "5 in the morning",
+    /// "the 3 in question" — so it is only inches when the next word says so
+    /// ("12 in wide", "12 in x 8 in") or when nothing follows at all.
+    private static let inchFollowers: Set<String> = [
+        "wide", "long", "tall", "high", "deep", "thick", "diameter", "across",
+        "x", "by", "screen", "display", "wheel", "wheels", "tyre", "tyres",
+        "tire", "tires", "pipe", "bore", "barrel", "gauge", "square", "sq",
+    ]
+
+    private static let bareTemperatureLetters: Set<String> = ["c", "f"]
 }
