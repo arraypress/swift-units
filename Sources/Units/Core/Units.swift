@@ -131,12 +131,28 @@ public enum Units {
         case is UnitTemperature:
             return system == .us ? UnitTemperature.fahrenheit : UnitTemperature.celsius
         case is UnitVolume:
-            return system == .us ? UnitVolume.gallons : UnitVolume.liters
+            // Scaled, like length and mass. A flat answer of gallons turns
+            // "2 cups" into "0.13 gal", which is nobody's idea of a helpful
+            // conversion — small volumes are poured, not filled.
+            let large = measurement.converted(to: UnitVolume.liters).value >= 1
+            if system == .us {
+                return large ? UnitVolume.gallons : UnitVolume.fluidOunces
+            }
+            return large ? UnitVolume.liters : UnitVolume.milliliters
         case is UnitSpeed:
             // Both the US and the UK post speed limits in mph.
             return system == .metric ? UnitSpeed.kilometersPerHour : UnitSpeed.milesPerHour
         case is UnitArea:
-            return system == .us ? UnitArea.squareFeet : UnitArea.squareMeters
+            // Land is measured in different units from rooms, in every system.
+            let land = measurement.converted(to: UnitArea.squareMeters).value >= 4046.86
+            if system == .us {
+                return land ? UnitArea.acres : UnitArea.squareFeet
+            }
+            // The UK sells land in acres and always has, whatever the maps say.
+            if system == .uk {
+                return land ? UnitArea.acres : UnitArea.squareMeters
+            }
+            return land ? UnitArea.hectares : UnitArea.squareMeters
         default:
             return nil
         }

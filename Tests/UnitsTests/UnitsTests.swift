@@ -203,3 +203,69 @@ struct OrdinalTests {
         #expect(Units.parse("12th") == nil)
     }
 }
+
+@Suite("Scale of the answer")
+struct ScaleTests {
+
+    private let us = Locale(identifier: "en_US")
+    private let uk = Locale(identifier: "en_GB")
+    private let metric = Locale(identifier: "de_DE")
+
+    @Test("A small volume is not answered in gallons")
+    func smallVolumes() throws {
+        // The bug this suite exists for: 2 cups came back as 0.13 gal.
+        let (_, american) = try #require(Units.localised("2 cups", locale: us))
+        #expect(american.unit == UnitVolume.fluidOunces)
+        #expect(abs(american.value - 16) < 0.5)
+
+        let (_, european) = try #require(Units.localised("2 cups", locale: metric))
+        #expect(european.unit == UnitVolume.milliliters)
+        // Foundation's cup is the 240 mL metric cup, not 236.588 mL.
+        #expect(abs(european.value - 480) < 1)
+    }
+
+    @Test("A large volume still is")
+    func largeVolumes() throws {
+        #expect(Units.localised("20 litres", locale: us)?.converted.unit == UnitVolume.gallons)
+        #expect(Units.localised("5 gallons", locale: metric)?.converted.unit == UnitVolume.liters)
+    }
+
+    @Test("Land and rooms take different units")
+    func areas() throws {
+        #expect(Units.localised("50 m2", locale: us)?.converted.unit == UnitArea.squareFeet)
+        #expect(Units.localised("2 hectares", locale: us)?.converted.unit == UnitArea.acres)
+        #expect(Units.localised("5 acres", locale: metric)?.converted.unit == UnitArea.hectares)
+        // Britain buys land in acres however metric the rest of the shop is.
+        #expect(Units.localised("2 hectares", locale: uk)?.converted.unit == UnitArea.acres)
+    }
+}
+
+@Suite("Units written with an exponent")
+struct ExponentTests {
+
+    @Test("Square and cubic spellings resolve")
+    func exponents() throws {
+        // Before the lexer allowed a trailing 2, "50 m2" did not fail — it
+        // came back as 50 metres. Silently wrong beats loudly wrong nowhere.
+        #expect(Units.parse("50 m2")?.unit == UnitArea.squareMeters)
+        #expect(Units.parse("50 m²")?.unit == UnitArea.squareMeters)
+        #expect(Units.parse("3 ft2")?.unit == UnitArea.squareFeet)
+        #expect(Units.parse("5 m3")?.unit == UnitVolume.cubicMeters)
+        #expect(Units.parse("2 km2")?.unit == UnitArea.squareKilometers)
+    }
+
+    @Test("Feet and inches still split")
+    func feetAndInchesSurvive() throws {
+        // The exponent has to be exactly one digit, or this becomes 5 feet
+        // and the 11 inches are swallowed by the unit token.
+        let height = try #require(Units.parse("5'11\""))
+        #expect(height.converted(to: UnitLength.inches).value == 71)
+    }
+
+    @Test("A rate is not its first unit")
+    func ratesAreNotGuessed() {
+        #expect(Units.parse("35 l/100km") == nil)
+        // But a speed whose whole spelling is known still reads.
+        #expect(Units.parse("100 km/h")?.unit == UnitSpeed.kilometersPerHour)
+    }
+}

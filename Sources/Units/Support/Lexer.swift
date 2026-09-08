@@ -40,13 +40,26 @@ enum Lexer {
         // A number, then optional space, then whatever follows. The unit is
         // resolved from the tail rather than matched by regex, so a spelling
         // table stays the single source of truth.
-        let pattern = #"(-?\d+(?:[.,]\d+)?)\s*([^\d\s,;]+(?:\s+[a-z]+)?)"#
+        // The `[23]` is what makes "m2" and "ft3" reachable at all. Without it
+        // the unit token stops dead at the first digit, and "50 m2" does not
+        // fail — it silently reads as 50 metres, which is the worst way to be
+        // wrong. Restricted to 2 and 3 because they are the only exponents in
+        // the tables, and because anything greedier eats the inches in 5'11".
+        let pattern = #"(-?\d+(?:[.,]\d+)?)\s*([^\d\s,;]+[23]?(?:\s+[a-z]+)?)"#
         guard let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]) else {
             return []
         }
         
         let ns = text as NSString
         for match in regex.matches(in: text, range: NSRange(location: 0, length: ns.length)) {
+            // A number sitting directly after a slash is the bottom of a rate,
+            // not a quantity: the "100km" in "35 l/100km" is per-something, and
+            // reporting it as a distance would invent a measurement nobody
+            // wrote. Dates get the same protection — "9/11" is not 11 of
+            // anything.
+            let start = match.range(at: 1).location
+            if start > 0, ns.character(at: start - 1) == unichar(UInt16(47)) { continue }
+
             let numberText = ns.substring(with: match.range(at: 1)).replacingOccurrences(of: ",", with: ".")
             guard let value = Double(numberText) else { continue }
             let tail = ns.substring(with: match.range(at: 2))
@@ -94,9 +107,11 @@ enum Lexer {
             let needle = entry.caseSensitive ? spelling : spelling.lowercased()
             if haystack == needle || haystack.hasPrefix(needle) {
                 // A longer word that merely starts with a unit is not that unit:
-                // "miles" is, "mileage" is not.
+                // "miles" is, "mileage" is not. A trailing "/" means a rate —
+                // "l/100km" is fuel consumption, and answering 35 litres for
+                // it would be confidently wrong, so nothing is answered.
                 let remainder = haystack.dropFirst(needle.count)
-                if let next = remainder.first, next.isLetter { continue }
+                if let next = remainder.first, next.isLetter || next == "/" { continue }
                 return (entry, spelling)
             }
         }
