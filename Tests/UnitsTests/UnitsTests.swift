@@ -269,3 +269,50 @@ struct ExponentTests {
         #expect(Units.parse("100 km/h")?.unit == UnitSpeed.kilometersPerHour)
     }
 }
+
+@Suite("Data rate")
+struct DataRateTests {
+
+    @Test("Bits and bytes are told apart by the spelling")
+    func bitsVersusBytes() throws {
+        // The eight-fold difference everybody trips over. The suffix carries
+        // it: "bps" is how a line is sold, "B/s" is how a transfer is reported.
+        #expect(Units.parse("100 Mbps")?.unit == UnitDataRate.megabitsPerSecond)
+        #expect(Units.parse("100 mbps")?.unit == UnitDataRate.megabitsPerSecond)
+        #expect(Units.parse("100 MB/s")?.unit == UnitDataRate.megabytesPerSecond)
+        #expect(Units.parse("100 Mb/s")?.unit == UnitDataRate.megabitsPerSecond)
+    }
+
+    @Test("A 100 Mbps line downloads at 12.5 MB/s")
+    func theComplaint() throws {
+        let speed = try #require(Units.dataRate("100 Mbps", as: .megabytesPerSecond))
+        #expect(abs(speed.value - 12.5) < 0.001)
+
+        let back = try #require(Units.dataRate("12.5 MB/s", as: .megabitsPerSecond))
+        #expect(abs(back.value - 100) < 0.001)
+    }
+
+    @Test("Decimal, not binary")
+    func decimalPrefixes() throws {
+        // 1 Mbps is exactly 1,000 kbps. Storage is the opposite, which is why
+        // the two are separate dimensions.
+        let rate = try #require(Units.dataRate("1 Mbps", as: .kilobitsPerSecond))
+        #expect(rate.value == 1_000)
+
+        let storage = try #require(Units.parse("1 MiB"))
+        #expect(storage.converted(to: UnitInformationStorage.kibibytes).value == 1_024)
+    }
+
+    @Test("Storage units are not shadowed by rate units")
+    func storageStillWorks() {
+        // "MB/s" is four characters and "MB" is two, so longest-first has to
+        // pick the rate for one and the size for the other.
+        #expect(Units.parse("500 MB")?.unit == UnitInformationStorage.megabytes)
+        #expect(Units.parse("500 MB/s")?.unit == UnitDataRate.megabytesPerSecond)
+    }
+
+    @Test("A rate is not confused with a dimension it cannot convert to")
+    func incompatible() {
+        #expect(throws: (any Error).self) { try Units.convert("100 Mbps", to: "MB") }
+    }
+}

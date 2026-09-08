@@ -47,6 +47,30 @@ electric current and fuel efficiency.
 Spellings are listed rather than derived, because plurals do not follow a rule —
 "feet" is not "foots" and "inches" is not "inchs".
 
+## Data rate
+
+Foundation has a dimension for how much data there is and none at all for how
+fast it moves, so `UnitDataRate` is a real `Dimension` subclass — everything
+else here works on it unchanged.
+
+```swift
+Units.dataRate("100 Mbps", as: .megabytesPerSecond)   // 12.5 MB/s
+```
+
+That gap is the most common "my internet is slower than advertised" complaint
+there is, and both numbers describe the same speed.
+
+Bits and bytes are told apart by the spelling, which is a reliable convention:
+a `bps` suffix is bits, because that is how a connection is sold, and a `B/s`
+suffix is bytes, because that is how a transfer is reported. Case-sensitive for
+exactly that reason — `MB/s` is eight times `Mb/s`, and quietly picking one
+would be wrong half the time. A sloppy lowercase `mbps` resolves to megabits,
+which is what somebody writing about their broadband means.
+
+Decimal, not binary: 1 Mbps is exactly 1,000 kbps, while 1 MiB really is 1,024
+KiB. That is why rate and storage are separate dimensions rather than one with
+a suffix.
+
 ## CSS units
 
 `px`, `em`, `rem`, `pt` and `pc`, because developers convert those constantly.

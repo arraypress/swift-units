@@ -159,6 +159,30 @@ enum UnitTable {
     static let all: [[Entry]] = [
         length, mass, temperature, volume, duration, speed, storage, area,
         power, energy, pressure, angle, frequency, electricCurrent, fuelEfficiency,
+        dataRate,
+    ]
+    
+    // MARK: - Data rate
+    
+    /// How fast data moves, which Foundation has no dimension for.
+    ///
+    /// The bits/bytes split is carried by the *spelling*, not by guesswork, and
+    /// that convention is reliable: a "bps" suffix is bits, because that is how
+    /// connections are sold, and a "B/s" suffix is bytes, because that is how
+    /// transfers are reported. Case-sensitive for exactly this reason — "MB/s"
+    /// is eight times "Mb/s", and quietly picking one would be wrong half the
+    /// time. Sloppy lowercase "mbps" resolves to megabits, which is what the
+    /// person writing it about their broadband means.
+    static let dataRate: [Entry] = [
+        .init(UnitDataRate.bitsPerSecond, ["bps", "bit/s", "bits per second"]),
+        .init(UnitDataRate.kilobitsPerSecond, ["kbps", "kbit/s", "kb/s", "Kb/s"], caseSensitive: true),
+        .init(UnitDataRate.megabitsPerSecond, ["mbps", "Mbps", "MBPS", "mbit/s", "Mbit/s", "mb/s", "Mb/s"], caseSensitive: true),
+        .init(UnitDataRate.gigabitsPerSecond, ["gbps", "Gbps", "gbit/s", "Gbit/s", "gb/s", "Gb/s"], caseSensitive: true),
+        .init(UnitDataRate.terabitsPerSecond, ["tbps", "Tbps"], caseSensitive: true),
+        .init(UnitDataRate.bytesPerSecond, ["B/s", "bytes per second"], caseSensitive: true),
+        .init(UnitDataRate.kilobytesPerSecond, ["KB/s", "kB/s"], caseSensitive: true),
+        .init(UnitDataRate.megabytesPerSecond, ["MB/s"], caseSensitive: true),
+        .init(UnitDataRate.gigabytesPerSecond, ["GB/s"], caseSensitive: true),
     ]
     
     // MARK: - The rest of Foundation's dimensions
