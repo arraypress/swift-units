@@ -165,7 +165,14 @@ extension Dimension {
     ///
     /// `Measurement.converted(to:)` traps at runtime on a mismatch rather than
     /// throwing, so this has to be checked before every conversion.
+    ///
+    /// Compares base units rather than types, because `type(of:)` is a trap
+    /// here: Foundation's static units are a private subclass — `UnitLength.inches`
+    /// is `_NSStatic_NSUnitLength` — while anything built with
+    /// `UnitLength(symbol:converter:)` is plain `NSUnitLength`. Comparing types
+    /// reports those as incompatible even though they convert perfectly, which
+    /// broke every CSS unit against every physical one.
     func superclassIsSame(as other: Dimension) -> Bool {
-        type(of: self) == type(of: other)
+        type(of: self).baseUnit().symbol == type(of: other).baseUnit().symbol
     }
 }

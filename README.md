@@ -47,6 +47,31 @@ electric current and fuel efficiency.
 Spellings are listed rather than derived, because plurals do not follow a rule —
 "feet" is not "foots" and "inches" is not "inchs".
 
+## CSS units
+
+`px`, `em`, `rem`, `pt` and `pc`, because developers convert those constantly.
+
+```swift
+try Units.convertCSS("24 px", to: "rem")    // 1.5 rem
+try Units.convertCSS("12 pt", to: "px")     // 16 px
+try Units.convertCSS("96 px", to: "in")     // 1 in
+```
+
+`px` and `em` are not fixed lengths — a pixel is a fraction of an inch at an
+assumed density, and an em is however many pixels the base font size says. Both
+are configurable, because both are project decisions:
+
+```swift
+let config = Units.CSSConfiguration(baseFontSize: 20, pixelDensity: 96)
+try Units.convertCSS("40 px", to: "rem", configuration: config)   // 2 rem
+```
+
+Defaults are 16 px/em and 96 ppi — the CSS reference pixel, not any real
+screen's density, which is what browsers use.
+
+They are modelled as real `UnitLength` units, so a CSS length converts to
+millimetres or feet for free.
+
 ## The parsing rules that matter
 
 **Longest match wins.** `mm` is never read as `m` followed by a stray

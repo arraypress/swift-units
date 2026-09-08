@@ -119,3 +119,53 @@ struct LocalisingTests {
         #expect(short.converted.unit == UnitLength.feet)
     }
 }
+
+@Suite("CSS units")
+struct CSSTests {
+    
+    @Test("Converts px to rem at the default base font size")
+    func pxToRem() throws {
+        let converted = try Units.convertCSS("24 px", to: "rem")
+        #expect(abs(converted.value - 1.5) < 0.0001)
+    }
+    
+    @Test("Converts rem back to px")
+    func remToPx() throws {
+        let converted = try Units.convertCSS("1.5 rem", to: "px")
+        #expect(abs(converted.value - 24) < 0.0001)
+    }
+    
+    @Test("Points are 1/72 inch, so 12pt is 16px at 96ppi")
+    func points() throws {
+        let converted = try Units.convertCSS("12 pt", to: "px")
+        #expect(abs(converted.value - 16) < 0.0001)
+    }
+    
+    @Test("Honours a non-default base font size")
+    func customBase() throws {
+        let config = Units.CSSConfiguration(baseFontSize: 20, pixelDensity: 96)
+        let converted = try Units.convertCSS("40 px", to: "rem", configuration: config)
+        #expect(abs(converted.value - 2.0) < 0.0001)
+    }
+    
+    @Test("Honours a non-default pixel density")
+    func customDensity() throws {
+        let config = Units.CSSConfiguration(baseFontSize: 16, pixelDensity: 72)
+        // At 72ppi a pixel is a point, so 12px == 12pt.
+        let converted = try Units.convertCSS("12 px", to: "pt", configuration: config)
+        #expect(abs(converted.value - 12) < 0.0001)
+    }
+    
+    @Test("rem is not read as r + em")
+    func remNotEm() throws {
+        let parsed = try #require(Units.parseCSS("2 rem"))
+        #expect(parsed.unit.symbol == "rem")
+    }
+    
+    @Test("CSS lengths convert to physical ones")
+    func toPhysical() throws {
+        // 96 px at 96 ppi is exactly one inch.
+        let converted = try Units.convertCSS("96 px", to: "in")
+        #expect(abs(converted.value - 1.0) < 0.0001)
+    }
+}
