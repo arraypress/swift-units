@@ -450,3 +450,40 @@ struct AlternativeTests {
         #expect(Units.alternative("5 miles", locale: fr)?.converted.unit == UnitLength.kilometers)
     }
 }
+
+@Suite("Numbers the way the reader writes them")
+struct NumberFormatTests {
+    private let gb = Locale(identifier: "en_GB")
+    private let de = Locale(identifier: "de_DE")
+
+    @Test("A comma is a thousands separator where the decimal point is a dot")
+    func thousands() {
+        // "1,500 m" was one and a half metres on a British Mac.
+        #expect(Units.parse("1,500 m", locale: gb)?.value == 1500)
+        #expect(Units.parse("12,000 ft", locale: gb)?.value == 12000)
+        #expect(Units.parse("1,234,567 km", locale: gb)?.value == 1_234_567)
+        #expect(Units.parse("1,234.56 km", locale: gb)?.value == 1234.56)
+    }
+
+    @Test("And a decimal point where the decimal point is a comma")
+    func commaDecimals() {
+        #expect(Units.parse("1,5 kg", locale: de)?.value == 1.5)
+        #expect(Units.parse("1,500 m", locale: de)?.value == 1.5)
+        #expect(Units.parse("1.234,56 km", locale: de)?.value == 1234.56)
+        #expect(Units.parse("1.234.567 km", locale: de)?.value == 1_234_567)
+        // One or two digits after a comma can only be a fraction, anywhere.
+        #expect(Units.parse("12,5 kg", locale: gb)?.value == 12.5)
+    }
+}
+
+@Suite("The temperature scale is its own preference")
+struct TemperaturePreferenceTests {
+    @Test("Chosen independently of the measurement system")
+    func preference() {
+        let twenty = Measurement(value: 20, unit: UnitTemperature.celsius as Dimension)
+        #expect(Units.counterpart(for: twenty, locale: Locale(identifier: "en_US")) == UnitTemperature.fahrenheit)
+        #expect(Units.counterpart(for: twenty, locale: Locale(identifier: "en-US-u-mu-celsius")) == UnitTemperature.celsius)
+        #expect(Units.counterpart(for: twenty, locale: Locale(identifier: "en-GB-u-mu-fahrenhe")) == UnitTemperature.fahrenheit)
+        #expect(Units.counterpart(for: twenty, locale: Locale(identifier: "en_GB")) == UnitTemperature.celsius)
+    }
+}

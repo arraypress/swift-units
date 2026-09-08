@@ -34,7 +34,7 @@ enum Lexer {
     }()
     
     /// Pull every quantity out of a string.
-    static func matches(in text: String) -> [(Match, UnitTable.Entry)] {
+    static func matches(in text: String, locale: Locale = .current) -> [(Match, UnitTable.Entry)] {
         var results: [(Match, UnitTable.Entry)] = []
         
         // A number, then optional space, then whatever follows. The unit is
@@ -45,7 +45,7 @@ enum Lexer {
         // fail — it silently reads as 50 metres, which is the worst way to be
         // wrong. Restricted to 2 and 3 because they are the only exponents in
         // the tables, and because anything greedier eats the inches in 5'11".
-        let pattern = #"(-?\d+(?:[.,]\d+)?)\s*([^\d\s,;]+[23]?(?:\s+[a-z]+)?)"#
+        let pattern = #"(-?\d+(?:[.,]\d+)*)\s*([^\d\s,;]+[23]?(?:\s+[a-z]+)?)"#
         guard let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]) else {
             return []
         }
@@ -60,8 +60,8 @@ enum Lexer {
             let start = match.range(at: 1).location
             if start > 0, ns.character(at: start - 1) == unichar(UInt16(47)) { continue }
 
-            let numberText = ns.substring(with: match.range(at: 1)).replacingOccurrences(of: ",", with: ".")
-            guard let value = Double(numberText) else { continue }
+            let numberText = ns.substring(with: match.range(at: 1))
+            guard let value = number(from: numberText, locale: locale) else { continue }
             let tail = ns.substring(with: match.range(at: 2))
             guard !isOrdinal(numberText, tail) else { continue }
 
@@ -76,6 +76,42 @@ enum Lexer {
         return results
     }
     
+    /// Reads "1,500", "1,5", "1,234.56" and "1.234,56" the way the reader would.
+    ///
+    /// Every comma used to become a decimal point, which made "1,500 m" one
+    /// and a half metres on a British Mac. A comma followed by exactly three
+    /// digits is a thousands separator wherever the decimal separator is a
+    /// dot, and only a decimal where it is a comma; one or two digits after a
+    /// comma can only be a fraction; more than one group can only be
+    /// thousands. When both separators appear, whichever comes last is the
+    /// decimal point.
+    static func number(from raw: String, locale: Locale) -> Double? {
+        let text = raw.replacingOccurrences(of: " ", with: "")
+        let hasComma = text.contains(","), hasDot = text.contains(".")
+
+        if hasComma && hasDot {
+            let commaLast = text.lastIndex(of: ",")! > text.lastIndex(of: ".")!
+            let grouping = commaLast ? "." : ","
+            return Double(text.replacingOccurrences(of: grouping, with: "").replacingOccurrences(of: ",", with: "."))
+        }
+        if hasComma {
+            let groups = text.split(separator: ",", omittingEmptySubsequences: false)
+            let groupsOfThree = groups.dropFirst().allSatisfy { $0.count == 3 }
+            let commaIsDecimal = locale.decimalSeparator == ","
+            if groupsOfThree && (groups.count > 2 || !commaIsDecimal) {
+                return Double(text.replacingOccurrences(of: ",", with: ""))
+            }
+            return Double(text.replacingOccurrences(of: ",", with: "."))
+        }
+        if hasDot {
+            let groups = text.split(separator: ".", omittingEmptySubsequences: false)
+            if groups.count > 2, groups.dropFirst().allSatisfy({ $0.count == 3 }) {
+                return Double(text.replacingOccurrences(of: ".", with: ""))
+            }
+        }
+        return Double(text)
+    }
+
     /// Whether "21st" is a date rather than 21 stone.
     ///
     /// `st` is stone, and an ordinal is written hard against its number, so

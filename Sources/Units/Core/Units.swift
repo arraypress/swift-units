@@ -22,8 +22,8 @@ public enum Units {
     /// Units.parse("5'11\"")                   // 71.0 in
     /// Units.parse("3 lb 4 oz")                // 52.0 oz
     /// ```
-    public static func parse(_ text: String) -> Measurement<Dimension>? {
-        parseAll(text).first
+    public static func parse(_ text: String, locale: Locale = .current) -> Measurement<Dimension>? {
+        parseAll(text, locale: locale).first
     }
     
     /// Every measurement in a string, left to right.
@@ -31,8 +31,8 @@ public enum Units {
     /// Adjacent quantities of the same dimension are summed rather than
     /// returned separately — "5 ft 11 in" and "3 lb 4 oz" are one measurement
     /// each, which is how they are meant, not two.
-    public static func parseAll(_ text: String) -> [Measurement<Dimension>] {
-        let matches = Lexer.matches(in: text)
+    public static func parseAll(_ text: String, locale: Locale = .current) -> [Measurement<Dimension>] {
+        let matches = Lexer.matches(in: text, locale: locale)
         guard matches.isEmpty == false else { return [] }
         
         var results: [Measurement<Dimension>] = []
@@ -135,7 +135,24 @@ public enum Units {
         for measurement: Measurement<Dimension>,
         locale: Locale = .current
     ) -> Dimension? {
-        counterpart(for: measurement, system: locale.measurementSystem)
+        // Temperature is its own preference on macOS and iOS, independent of
+        // the measurement system: Celsius is a valid choice in the US and
+        // Fahrenheit in Britain, and the choice is what the person asked for.
+        if measurement.unit is UnitTemperature { return preferredTemperatureUnit(for: locale) }
+        return counterpart(for: measurement, system: locale.measurementSystem)
+    }
+
+    /// The temperature scale the reader has chosen.
+    ///
+    /// Not readable as a property. Foundation folds the preference into the
+    /// locale and exposes it only through formatting, so a known temperature
+    /// is formatted the way weather is and the answer inspected. Roundabout,
+    /// but it is the one supported signal, and it honours the `mu` locale
+    /// keyword — `en-GB-u-mu-fahrenhe` — as well as the system setting.
+    public static func preferredTemperatureUnit(for locale: Locale = .current) -> UnitTemperature {
+        let sample = Measurement(value: 0, unit: UnitTemperature.celsius)
+        let text = sample.formatted(.measurement(width: .abbreviated, usage: .weather).locale(locale))
+        return text.contains("F") ? .fahrenheit : .celsius
     }
     
     /// The unit a reader in `system` would want.
@@ -238,7 +255,7 @@ public enum Units {
         locale: Locale = .current
     ) -> (source: Measurement<Dimension>, converted: Measurement<Dimension>)? {
         if let localised = localised(text, locale: locale) { return localised }
-        guard let source = parse(text),
+        guard let source = parse(text, locale: locale),
               let target = opposite(for: source, locale: locale),
               target != source.unit
         else { return nil }
@@ -253,7 +270,7 @@ public enum Units {
         _ text: String,
         locale: Locale = .current
     ) -> (source: Measurement<Dimension>, converted: Measurement<Dimension>)? {
-        guard let source = parse(text),
+        guard let source = parse(text, locale: locale),
               let target = counterpart(for: source, locale: locale),
               target != source.unit
         else { return nil }
