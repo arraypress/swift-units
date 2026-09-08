@@ -76,7 +76,12 @@ enum UnitTable {
     static let temperature: [Entry] = [
         .init(UnitTemperature.celsius, ["°c", "c", "celsius", "centigrade"]),
         .init(UnitTemperature.fahrenheit, ["°f", "f", "fahrenheit"]),
-        .init(UnitTemperature.kelvin, ["k", "kelvin"], caseSensitive: true),
+        // "K" is kelvin; "k" is the prefix kilo. Listed the wrong way round,
+        // "50 k" — fifty thousand of something, in anybody's writing — parsed
+        // as fifty kelvin and answered −223 °C. The symbol is case-sensitive
+        // because that distinction is the whole point; the word is not.
+        .init(UnitTemperature.kelvin, ["K"], caseSensitive: true),
+        .init(UnitTemperature.kelvin, ["kelvin", "kelvins"]),
     ]
     
     // MARK: - Volume

@@ -316,3 +316,19 @@ struct DataRateTests {
         #expect(throws: (any Error).self) { try Units.convert("100 Mbps", to: "MB") }
     }
 }
+
+@Suite("Case carries meaning")
+struct CaseTests {
+
+    @Test("K is kelvin, k is not")
+    func kelvinIsUppercase() throws {
+        #expect(Units.parse("300 K")?.unit == UnitTemperature.kelvin)
+        #expect(Units.parse("300 kelvin")?.unit == UnitTemperature.kelvin)
+        #expect(Units.parse("300 Kelvin")?.unit == UnitTemperature.kelvin)
+
+        // The one that matters: "50 k" is fifty thousand, and answering
+        // −223 °C for it is worse than answering nothing.
+        #expect(Units.parse("50 k") == nil)
+        #expect(Units.parse("250 k") == nil)
+    }
+}
