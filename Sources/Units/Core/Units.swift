@@ -135,8 +135,14 @@ public enum Units {
         for measurement: Measurement<Dimension>,
         locale: Locale = .current
     ) -> Dimension? {
-        let system = locale.measurementSystem
-        
+        counterpart(for: measurement, system: locale.measurementSystem)
+    }
+    
+    /// The unit a reader in `system` would want.
+    static func counterpart(
+        for measurement: Measurement<Dimension>,
+        system: Locale.MeasurementSystem
+    ) -> Dimension? {
         switch measurement.unit {
         case is UnitLength:
             // Below a millimetre there is nothing everyday to convert into:
@@ -190,6 +196,53 @@ public enum Units {
         default:
             return nil
         }
+    }
+    
+    /// The same quantity in whichever system it is *not* already in.
+    ///
+    /// ``counterpart(for:locale:)`` answers "what would the reader want".
+    /// This answers "what would the other side want", which is the question
+    /// while writing: a Briton typing "12 kg" to an American needs pounds, and
+    /// nothing in the Briton's locale says so. Metric in, imperial out;
+    /// imperial in, metric out.
+    public static func opposite(
+        for measurement: Measurement<Dimension>,
+        locale: Locale = .current
+    ) -> Dimension? {
+        // Ask for the metric version first. If that is what it already is,
+        // the quantity is metric and the answer is the imperial one.
+        if let metric = counterpart(for: measurement, system: .metric), metric != measurement.unit {
+            return metric
+        }
+        guard let imperial = counterpart(for: measurement, system: .us) else { return nil }
+        
+        // Britain weighs people in stone, so a metric body weight comes back
+        // in stone rather than pounds for a British reader. Forty kilos is
+        // where "a person" starts; below that it is luggage, and pounds.
+        if locale.measurementSystem == .uk, measurement.unit is UnitMass,
+           measurement.converted(to: UnitMass.kilograms).value >= 40 {
+            return UnitMass.stones
+        }
+        return imperial
+    }
+    
+    /// Parse, then convert to the reader's units — or, when it is already in
+    /// them, to the other system's.
+    ///
+    /// The one to use in a typing tool. ``localised(_:locale:)`` is right for
+    /// *reading* — "5 miles" in a message becomes kilometres — but says nothing
+    /// about "12 kg" typed by someone who lives in kilograms, and that is
+    /// exactly when they are writing to someone who does not.
+    public static func alternative(
+        _ text: String,
+        locale: Locale = .current
+    ) -> (source: Measurement<Dimension>, converted: Measurement<Dimension>)? {
+        if let localised = localised(text, locale: locale) { return localised }
+        guard let source = parse(text),
+              let target = opposite(for: source, locale: locale),
+              target != source.unit
+        else { return nil }
+        return (source, source.converted(to: target))
     }
     
     /// Parse, then convert to whatever the reader's locale would rather see.

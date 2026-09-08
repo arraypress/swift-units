@@ -414,3 +414,39 @@ struct HeightTests {
         #expect(Units.parse("500 ft 12")?.unit == UnitLength.feet)
     }
 }
+
+@Suite("The other system")
+struct AlternativeTests {
+
+    private let uk = Locale(identifier: "en_GB")
+    private let us = Locale(identifier: "en_US")
+    private let fr = Locale(identifier: "fr_FR")
+
+    @Test("Already in your units means the other side's")
+    func symmetric() throws {
+        // A Briton gets nothing from localised("12 kg") — it is their unit —
+        // and that is the wrong answer while typing it to an American.
+        #expect(Units.localised("12 kg", locale: uk) == nil)
+        #expect(Units.alternative("12 kg", locale: uk)?.converted.unit == UnitMass.pounds)
+        #expect(Units.alternative("12 st", locale: uk)?.converted.unit == UnitMass.kilograms)
+        #expect(Units.alternative("5 km", locale: fr)?.converted.unit == UnitLength.miles)
+        #expect(Units.alternative("5 mi", locale: fr)?.converted.unit == UnitLength.kilometers)
+        #expect(Units.alternative("180C", locale: uk)?.converted.unit == UnitTemperature.fahrenheit)
+        #expect(Units.alternative("350F", locale: us)?.converted.unit == UnitTemperature.celsius)
+        #expect(Units.alternative("500 ml", locale: fr)?.converted.unit == UnitVolume.fluidOunces)
+    }
+
+    @Test("Britain weighs people in stone")
+    func stoneForPeople() throws {
+        #expect(Units.alternative("76 kg", locale: uk)?.converted.unit == UnitMass.stones)
+        #expect(Units.alternative("12 kg", locale: uk)?.converted.unit == UnitMass.pounds)
+        // Nobody else does.
+        #expect(Units.alternative("76 kg", locale: fr)?.converted.unit == UnitMass.pounds)
+    }
+
+    @Test("Reading is unchanged")
+    func localisedStillReadersUnits() throws {
+        #expect(Units.localised("5 miles", locale: fr)?.converted.unit == UnitLength.kilometers)
+        #expect(Units.alternative("5 miles", locale: fr)?.converted.unit == UnitLength.kilometers)
+    }
+}
