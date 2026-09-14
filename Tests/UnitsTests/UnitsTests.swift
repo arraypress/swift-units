@@ -264,8 +264,16 @@ struct ExponentTests {
 
     @Test("A rate is not its first unit")
     func ratesAreNotGuessed() {
-        #expect(Units.parse("35 l/100km") == nil)
-        // But a speed whose whole spelling is known still reads.
+        // This used to expect nil, because the tail could not cross the digit
+        // in "100km" and refusing was the only safe answer. It now reads the
+        // rate itself, which honours the same intent better: what must never
+        // happen is 35 LITRES, and that is what is asserted.
+        let consumption = Units.parse("35 l/100km")
+        #expect(consumption?.unit.symbol == "L/100km")
+        #expect(consumption?.value == 35)
+        #expect(consumption?.unit != UnitVolume.liters)
+
+        // And a speed whose whole spelling is known still reads.
         #expect(Units.parse("100 km/h")?.unit == UnitSpeed.kilometersPerHour)
     }
 }

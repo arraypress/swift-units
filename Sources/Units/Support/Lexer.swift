@@ -55,7 +55,11 @@ enum Lexer {
         // leading class cannot cross a digit, so without it the tail stopped
         // at "l/" and the canonical spelling of fuel consumption — the one
         // everybody actually writes — failed to parse.
-        let pattern = #"(-?\d+(?:[.,]\d+)*)\s*([^\d\s,;/]+(?:/[a-z0-9]+)?[23]?(?:\s+[a-z0-9]+){0,3})"#
+        // A trailing word may contain digits ("100km") but may NOT be only
+        // digits. That distinction is the whole fix: `{0,3}` trailing words is
+        // what lets "miles per gallon" beat "miles", but allowing a BARE number
+        // ate the inches in "5 ft 11" and turned a compound height into 5 feet.
+        let pattern = #"(-?\d+(?:[.,]\d+)*)\s*([^\d\s,;/]+(?:/[a-z0-9]+)?[23]?(?:\s+(?:[a-z]+|[0-9]+[a-z]+)){0,3})"#
         guard let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]) else {
             return []
         }
