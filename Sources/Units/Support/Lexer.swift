@@ -45,7 +45,17 @@ enum Lexer {
         // fail — it silently reads as 50 metres, which is the worst way to be
         // wrong. Restricted to 2 and 3 because they are the only exponents in
         // the tables, and because anything greedier eats the inches in 5'11".
-        let pattern = #"(-?\d+(?:[.,]\d+)*)\s*([^\d\s,;]+[23]?(?:\s+[a-z]+)?)"#
+        // Up to three trailing words, not one. With only one, "30 miles per
+        // gallon" captured "miles per", which then prefix-matched "miles" and
+        // silently answered 30 MILES for a fuel-consumption figure — the worst
+        // way to be wrong. Three covers the longest spellings in the tables
+        // ("litres per 100km", "miles per gallon"), and digits are allowed in
+        // those words so the "100km" is not cut off.
+        // The slash group is what makes "8 l/100km" readable at all: the
+        // leading class cannot cross a digit, so without it the tail stopped
+        // at "l/" and the canonical spelling of fuel consumption — the one
+        // everybody actually writes — failed to parse.
+        let pattern = #"(-?\d+(?:[.,]\d+)*)\s*([^\d\s,;/]+(?:/[a-z0-9]+)?[23]?(?:\s+[a-z0-9]+){0,3})"#
         guard let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]) else {
             return []
         }

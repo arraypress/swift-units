@@ -92,6 +92,14 @@ enum UnitTable {
         .init(UnitVolume.deciliters, ["dl", "decilitre", "decilitres"]),
         .init(UnitVolume.liters, ["l", "litre", "litres", "liter", "liters"]),
         .init(UnitVolume.cubicMeters, ["m3", "m³", "cubic metre", "cubic metres"]),
+        // The lexer's [23] makes "ft3" reachable, but without an entry here it
+        // resolved to FEET — a length answer for a volume question. Area had
+        // the full set; volume had only cubic metres.
+        .init(UnitVolume.cubicCentimeters, ["cm3", "cm³", "cubic centimetre", "cubic centimetres"]),
+        .init(UnitVolume.cubicMillimeters, ["mm3", "mm³", "cubic millimetre", "cubic millimetres"]),
+        .init(UnitVolume.cubicInches, ["in3", "in³", "cubic inch", "cubic inches"]),
+        .init(UnitVolume.cubicFeet, ["ft3", "ft³", "cubic foot", "cubic feet"]),
+        .init(UnitVolume.cubicYards, ["yd3", "yd³", "cubic yard", "cubic yards"]),
         .init(UnitVolume.teaspoons, ["tsp", "teaspoon", "teaspoons"]),
         .init(UnitVolume.tablespoons, ["tbsp", "tablespoon", "tablespoons"]),
         .init(UnitVolume.fluidOunces, ["fl oz", "floz", "fluid ounce", "fluid ounces"]),
